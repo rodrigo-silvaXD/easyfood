@@ -1,0 +1,26 @@
+# Sobe um PostgreSQL local para a EasyFood sem precisar instalar nada na máquina.
+#   docker compose up -d     -> inicia
+#   docker compose down      -> para
+#   docker compose down -v   -> para e apaga os dados
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: easyfood-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: easyfood
+      POSTGRES_PASSWORD: easyfood
+      POSTGRES_DB: easyfood
+    ports:
+      - "5432:5432"
+    volumes:
+      - easyfood-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U easyfood -d easyfood"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  easyfood-data:

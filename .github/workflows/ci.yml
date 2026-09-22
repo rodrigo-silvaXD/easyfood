@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verificar:
+    name: Instalar, validar schema e subir a API
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: easyfood
+          POSTGRES_PASSWORD: easyfood
+          POSTGRES_DB: easyfood
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U easyfood -d easyfood"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://easyfood:easyfood@localhost:5432/easyfood
+      JWT_SECRET: chave-de-teste-usada-somente-no-ci
+      PORT: 3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Validar o schema do Prisma
+        run: npx prisma validate
+
+      - name: Aplicar as migrations
+        run: npx prisma migrate deploy
+
+      - name: Popular o banco
+        run: npm run seed
+
+      - name: Verificar se a API responde
+        run: |
+          npm start &
+
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/health > /dev/null && break
+            sleep 1
+          done
+
+          curl --fail http://localhost:3000/health
+          curl --fail http://localhost:3000/restaurants
+
+          status=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:3000/restaurants)
+          test "$status" = "401" || { echo "POST /restaurants devolveu $status, esperava 401"; exit 1; }
+
+          echo "API respondendo e POST protegido por JWT."
