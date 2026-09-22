@@ -4,6 +4,7 @@
   "description": "EasyFood - API e interface para descoberta e cadastro de restaurantes. Projeto da disciplina Software Architecture & Design Patterns.",
   "main": "server.js",
   "scripts": {
+    "postinstall": "prisma generate",
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node prisma/seed.js",
