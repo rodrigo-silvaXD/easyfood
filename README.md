@@ -106,7 +106,14 @@ EasyFood rodando na porta 3000
 Interface: http://localhost:3000
 ```
 
-Abra <http://localhost:3000>, crie uma conta e use o app.
+### 5. Primeiro acesso
+
+O banco começa **sem nenhum usuário** — não existe conta padrão e o seed só cria
+restaurantes. Abra <http://localhost:3000>, toque em **Criar conta** e cadastre a sua.
+O cadastro já devolve o token e entra direto no app.
+
+A partir daí: a listagem é pública, mas cadastrar e remover restaurante exige estar
+logado.
 
 ### Comandos úteis
 
