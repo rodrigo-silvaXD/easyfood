@@ -1,5 +1,7 @@
 # EasyFood
 
+[![CI](https://github.com/rodrigo-silvaXD/easyfood/actions/workflows/ci.yml/badge.svg)](https://github.com/rodrigo-silvaXD/easyfood/actions/workflows/ci.yml)
+
 Aplicação para descobrir e cadastrar restaurantes. API REST em Node.js + Express,
 persistência em PostgreSQL via Prisma, autenticação com JWT e uma interface
 mobile-first servida pela própria API.
