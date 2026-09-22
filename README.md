@@ -82,7 +82,13 @@ prepared statements).
 cp .env.example .env
 ```
 
-Edite o `.env` com a `DATABASE_URL` escolhida e gere uma chave para os tokens:
+**Se você escolheu o Docker (opção a), não precisa editar nada** — a `DATABASE_URL`
+do `.env.example` já usa exatamente o usuário, a senha e o banco que o
+`docker-compose.yml` cria (`easyfood` / `easyfood` / `easyfood`).
+
+Nas opções **b** e **c**, troque a `DATABASE_URL` pela do seu banco.
+
+Em qualquer caso, antes de publicar em algum lugar gere um `JWT_SECRET` de verdade:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
