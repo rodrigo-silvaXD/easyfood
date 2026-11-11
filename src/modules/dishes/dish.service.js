@@ -17,13 +17,19 @@ function validateDish(data) {
     error.statusCode = 400;
     throw error;
   }
+  if (data.name.trim().length > 150 || data.category.trim().length > 100 || data.description.length > 1000) {
+    const error = new Error("Nome (até 150), categoria (até 100) ou descrição (até 1000 caracteres) muito longos");
+    error.statusCode = 400;
+    throw error;
+  }
   const price = Number(data.price);
   if (
     data.price === null ||
     data.price === undefined ||
     data.price === "" ||
     !Number.isFinite(price) ||
-    price < 0
+    price < 0 ||
+    price > 99999999.99 // limite da coluna Decimal(10, 2)
   ) {
     const error = new Error("Preço inválido");
     error.statusCode = 400;
@@ -145,6 +151,17 @@ async function updateDishImage(dishId, buffer, userId) {
   );
 }
 
+async function removeDishImage(dishId, userId) {
+  const dish = await getDishWithRestaurant(dishId);
+
+  ensureOwnership(dish.restaurant, userId);
+
+  // imageUrl é obrigatório no schema: "sem imagem" é string vazia, como na criação do prato
+  return imageService.clearImage(dish.imageUrl, () =>
+    prisma.dish.update({ where: { id: dish.id }, data: { imageUrl: "" } })
+  );
+}
+
 module.exports = {
   createDish,
   listDishes,
@@ -152,5 +169,6 @@ module.exports = {
   updateDish,
   deleteDish,
   updateDishImage,
+  removeDishImage,
   parseId
 };

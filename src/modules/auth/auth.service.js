@@ -5,8 +5,19 @@ const imageService = require("../shared/image.service");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// E-mail não diferencia maiúsculas: "Ana@x.com" e "ana@x.com" são a mesma conta
+function findByEmail(email) {
+  return prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } });
+}
+
 // Cadastro: guarda o usuário com a senha em hash
 async function register({ name, email, password }) {
+  if (await findByEmail(email)) {
+    const error = new Error("E-mail já cadastrado");
+    error.code = "P2002";
+    throw error;
+  }
+
   const hash = await bcrypt.hash(password, 10);
 
   const user = await prisma.user.create({
@@ -19,7 +30,7 @@ async function register({ name, email, password }) {
 
 // Login: confere o e-mail, compara a senha e gera o token
 async function login({ email, password }) {
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await findByEmail(email);
 
   if (!user) {
     return null; // usuário não existe
@@ -72,4 +83,20 @@ async function updateProfileImage(userId, buffer) {
   return { id: updated.id, name: updated.name, email: updated.email, imageUrl: updated.imageUrl };
 }
 
-module.exports = { register, login, getById, updateProfileImage };
+async function removeProfileImage(userId) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!user) {
+    const error = new Error("Usuário não encontrado");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const updated = await imageService.clearImage(user.imageUrl, () =>
+    prisma.user.update({ where: { id: userId }, data: { imageUrl: null } })
+  );
+
+  return { id: updated.id, name: updated.name, email: updated.email, imageUrl: updated.imageUrl };
+}
+
+module.exports = { register, login, getById, updateProfileImage, removeProfileImage };
