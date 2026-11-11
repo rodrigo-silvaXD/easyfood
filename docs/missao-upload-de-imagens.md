@@ -63,6 +63,32 @@ Também verificado: usuário que não é dono do restaurante recebe `403`; troca
 
 ---
 
+## Revisão — bugs encontrados e corrigidos
+
+Antes da entrega, rodei uma bateria de 52 testes tentando quebrar a API, como um professor faria. Parte dos problemas já existia no código-base; todos foram corrigidos.
+
+| Problema encontrado | Antes | Depois |
+|---------------------|-------|--------|
+| Requisição sem corpo (cadastro, login, restaurante, prato) | `500` com página HTML de erro | `400` com mensagem em JSON |
+| JSON malformado | `400` em HTML | `400` em JSON |
+| Rota inexistente | Página HTML | `404` em JSON |
+| Cadastro com nome/e-mail só de espaços, e-mail sem `@`, senha curta | Aceito (`201`) | `400`. Senha mínima de 6 caracteres |
+| Nome longo demais ou tipo errado (número, objeto) | `500` | `400` |
+| Mesmo e-mail com maiúsculas diferentes | Criava uma segunda conta | `409`. O login também ignora maiúsculas |
+| Senha errada repetidas vezes | Tentativas ilimitadas | Após 5 erros, `429` por 15 minutos |
+| Restaurante com nota negativa | Aceito | `400` (nota de 0 a 5) |
+| Restaurante com nota 10 ou texto | `500` (estoura `Decimal(2,1)`) | `400` |
+| Prato com preço gigante | `500` (estoura `Decimal(10,2)`) | `400` |
+
+Na interface, clicar numa categoria do fim da lista deslocava **todas** as telas para o lado. O `scrollIntoView`, usado para centralizar o chip, rolava também o contêiner das telas. A correção rola só a fileira de categorias, e o contêiner passou a usar `overflow: clip`, que não pode ser rolado por código.
+
+Também entraram:
+- remover a foto de perfil, a foto de um prato e a capa (`DELETE .../image`), apagando o arquivo do disco;
+- capa do restaurante (`POST /restaurants/:id/image`), reutilizando o mesmo `image.service`;
+- imagem gerada a partir da categoria quando o restaurante ou o prato não tem foto.
+
+---
+
 ## Parte 6 — Pense como arquiteto
 
 **Por que faz sentido reutilizar o mesmo serviço de imagens?**

@@ -38,7 +38,8 @@ Adotar a **opção 2**: um `image.service.js` e um `upload.middleware.js` em `sr
 - **Multer** recebe o arquivo em memória (`memoryStorage`), aceita apenas JPEG, PNG e WebP, com limite de **5 MB**.
 - **Sharp** corrige a orientação, recorta no tamanho pedido (perfil 400×400, prato 800×600) e converte para **WebP com qualidade 80**.
 - A imagem otimizada é salva em `uploads/<pasta>/<uuid>.webp` e servida pelo Express em `/uploads`.
-- O PostgreSQL guarda só o caminho (`User.imageUrl` e `Dish.imageUrl`), nunca o arquivo.
+- O PostgreSQL guarda só o caminho (`User.imageUrl`, `Dish.imageUrl` e `Restaurant.imageUrl`), nunca o arquivo.
+- O mesmo serviço atende um terceiro caso, a capa do restaurante (1200×600), e a remoção de imagens (`clearImage`), sem código novo de processamento.
 
 ---
 

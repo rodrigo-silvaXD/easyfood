@@ -30,14 +30,22 @@ Projeto da disciplina Software Architecture & Design Patterns (UniFECAF), basead
 ## Endpoints
 
 ### Autenticação
-- `POST /auth/register`: cadastra usuário
-- `POST /auth/login`: faz login e devolve um token JWT
-- `GET  /auth/me`: dados do usuário logado, incluindo a foto (exige token)
-- `POST /auth/me/image`: envia a foto de perfil do usuário logado (exige token)
+- `POST   /auth/register`: cadastra usuário (senha com no mínimo 6 caracteres)
+- `POST   /auth/login`: faz login e devolve um token JWT
+- `GET    /auth/me`: dados do usuário logado, incluindo a foto (exige token)
+- `POST   /auth/me/image`: envia a foto de perfil do usuário logado (exige token)
+- `DELETE /auth/me/image`: remove a foto de perfil (exige token)
+
+Regras do cadastro e do login:
+- nome com 2 a 150 caracteres, e-mail válido, senha de 6 a 72 caracteres
+- o e-mail não diferencia maiúsculas de minúsculas (`Ana@x.com` e `ana@x.com` são a mesma conta)
+- depois de 5 senhas erradas para o mesmo e-mail, o login fica bloqueado por 15 minutos (`429`)
 
 ### Restaurantes
-- `GET  /restaurants`: lista restaurantes (público)
-- `POST /restaurants`: cadastra restaurante; quem está logado vira o dono (exige token)
+- `GET    /restaurants`: lista restaurantes, com a capa em `imageUrl` (público)
+- `POST   /restaurants`: cadastra restaurante; quem está logado vira o dono (exige token). Avaliação de 0 a 5
+- `POST   /restaurants/:restaurantId/image`: envia a capa do restaurante (exige token, só o dono)
+- `DELETE /restaurants/:restaurantId/image`: remove a capa (exige token, só o dono)
 
 ### Pratos
 - `GET    /restaurants/:restaurantId/dishes`: cardápio do restaurante, com `imageUrl` (público)
@@ -46,6 +54,7 @@ Projeto da disciplina Software Architecture & Design Patterns (UniFECAF), basead
 - `PUT    /dishes/:dishId`: edita prato (exige token, só o dono)
 - `DELETE /dishes/:dishId`: remove prato (exige token, só o dono)
 - `POST   /dishes/:dishId/image`: envia a foto do prato (exige token, só o dono)
+- `DELETE /dishes/:dishId/image`: remove a foto do prato (exige token, só o dono)
 
 ### Upload de imagens
 
@@ -58,8 +67,10 @@ curl -X POST http://localhost:3000/auth/me/image \
 ```
 
 - Formatos aceitos: JPEG, PNG e WebP, até **5 MB**
-- A imagem é redimensionada (perfil 400×400, prato 800×600) e convertida para WebP
+- A imagem é redimensionada (perfil 400×400, prato 800×600, capa 1200×600) e convertida para WebP
 - Fica disponível em `http://localhost:3000/uploads/...`, no caminho devolvido em `imageUrl`
+- Ao trocar ou remover, o arquivo antigo é apagado do disco
+- Sem foto enviada, a interface mostra uma imagem gerada a partir da categoria do restaurante ou do prato
 
 | Situação | Resposta |
 |----------|----------|
@@ -84,8 +95,9 @@ src/
     └── shared/
         ├── activity.service.js
         ├── email.service.js
-        ├── image.service.js       # otimiza (Sharp) e armazena imagens
-        └── upload.middleware.js   # recebe o arquivo (Multer)
+        ├── image.service.js       # otimiza (Sharp), armazena e remove imagens
+        ├── upload.middleware.js   # recebe o arquivo (Multer)
+        └── validation.js          # validação de texto, e-mail, número e id
 public/                # interface web (HTML, CSS e JS)
 uploads/               # imagens enviadas (fora do Git)
 ```
