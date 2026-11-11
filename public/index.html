@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#fffdfa">
+  <title>EasyFood</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Ícones (traço) -->
+  <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 10.2 12 3.5l8.5 6.7V19a1.5 1.5 0 0 1-1.5 1.5h-4.2v-5.8H9.2v5.8H5A1.5 1.5 0 0 1 3.5 19z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.8"/><path d="m20 20-3.9-3.9"/></symbol>
+    <symbol id="i-add" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5.5"/><path d="M12 8.3v7.4M8.3 12h7.4"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5.5v13M5.5 12h13"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20.2s-7.6-4.5-9.3-9.3C1.6 7.7 3.7 4.6 7.1 4.6c2 0 3.7 1.1 4.9 2.8 1.2-1.7 2.9-2.8 4.9-2.8 3.4 0 5.5 3.1 4.4 6.3-1.7 4.8-9.3 9.3-9.3 9.3z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.9"/><path d="M4.5 20.5c.6-3.7 3.7-6.2 7.5-6.2s6.9 2.5 7.5 6.2"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3.2 2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17.1 6.6 20l1.1-6.1-4.5-4.3 6.1-.8z"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4.5 7.8h2.7l1.8-2.6h6l1.8 2.6h2.7a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.3v-9a1.5 1.5 0 0 1 1.5-1.5z"/><circle cx="12" cy="13.4" r="3.4"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5.5M11 6l-6 6 6 6"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9.5 6 6 6-6 6"/></symbol>
+    <symbol id="i-logout" viewBox="0 0 24 24"><path d="M14.5 4.5H18a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5h-3.5M10 16.5 5.5 12 10 7.5M5.5 12h10"/></symbol>
+    <symbol id="i-fork" viewBox="0 0 24 24"><path d="M6.5 3.5v5.2a2.8 2.8 0 0 0 5.6 0V3.5M9.3 3.5v17M17.5 20.5V3.5c-1.9 1.2-3 3.7-3 6.6v3.3h3"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M2.5 8.8a14 14 0 0 1 19 0M5.8 12.3a9.3 9.3 0 0 1 12.4 0M9.2 15.7a4.6 4.6 0 0 1 5.6 0"/><circle cx="12" cy="19" r=".6"/></symbol>
+    <symbol id="i-battery" viewBox="0 0 24 24"><rect x="2.5" y="7" width="17" height="10" rx="2.6"/><path d="M22 10.6v2.8"/><rect x="4.6" y="9.1" width="11" height="5.8" rx="1.2" fill="currentColor" stroke="none"/></symbol>
+  </svg>
+
+  <div class="phone">
+    <div class="status-bar">
+      <span id="clock">9:41</span>
+      <span class="icons">
+        <svg class="ic"><use href="#i-wifi"/></svg>
+        <svg class="ic"><use href="#i-battery"/></svg>
+      </span>
+    </div>
+
+    <header class="header">
+      <div class="logo">
+        <span class="mark"><svg class="ic"><use href="#i-fork"/></svg></span>
+        <span>easy<em>food</em></span>
+      </div>
+      <button class="avatar-btn" id="header-avatar" aria-label="Abrir perfil"></button>
+    </header>
+
+    <main class="views">
+      <!-- Início -->
+      <section class="view active" id="view-home">
+        <div class="greeting">
+          <p id="greeting-sub">Olá</p>
+          <h1>O que vamos <em>pedir</em> hoje?</h1>
+        </div>
+
+        <label class="search-bar">
+          <svg class="ic"><use href="#i-search"/></svg>
+          <input type="search" id="search" placeholder="Buscar restaurantes" autocomplete="off">
+        </label>
+
+        <div class="categories" id="categories"></div>
+
+        <div class="section-header">
+          <h2>Restaurantes</h2>
+          <span class="count" id="count"></span>
+        </div>
+
+        <div class="restaurant-list" id="restaurant-list"></div>
+      </section>
+
+      <!-- Favoritos -->
+      <section class="view" id="view-favorites">
+        <div class="greeting">
+          <p>Seus preferidos</p>
+          <h1>Favoritos</h1>
+        </div>
+        <div class="section-header">
+          <h2>Salvos</h2>
+          <span class="count" id="favorites-count"></span>
+        </div>
+        <div class="restaurant-list" id="favorites-list"></div>
+      </section>
+
+      <!-- Cadastrar restaurante -->
+      <section class="view" id="view-add">
+        <div class="greeting">
+          <p>Seu negócio na EasyFood</p>
+          <h1>Cadastrar <em>restaurante</em></h1>
+        </div>
+
+        <div class="panel" id="add-locked" style="margin-top:18px">
+          <h2>Entre para continuar</h2>
+          <p class="hint">Só usuários autenticados cadastram restaurantes. Você vira o dono e pode montar o cardápio com fotos.</p>
+          <button class="btn btn-dark" data-go="profile">Entrar ou criar conta</button>
+        </div>
+
+        <form class="panel" id="add-restaurant-form" style="margin-top:18px">
+          <div class="field">
+            <label for="restaurant-name">Nome do restaurante</label>
+            <input type="text" id="restaurant-name" placeholder="Ex: Taco Loco" maxlength="150" required>
+          </div>
+          <div class="field">
+            <label for="restaurant-category">Categoria</label>
+            <select id="restaurant-category" required>
+              <option value="">Selecione uma categoria</option>
+              <option value="Burger">🍔 Burger</option>
+              <option value="Pizza">🍕 Pizza</option>
+              <option value="Sushi">🍣 Sushi</option>
+              <option value="Saudável">🥗 Saudável</option>
+              <option value="Mexicana">🌮 Mexicana</option>
+              <option value="Brasileira">🍛 Brasileira</option>
+              <option value="Japonesa">🍱 Japonesa</option>
+              <option value="Italiana">🍝 Italiana</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="restaurant-rating">Avaliação (0 a 5)</label>
+            <input type="number" id="restaurant-rating" placeholder="Ex: 4.3" min="0" max="5" step="0.1" required>
+          </div>
+          <button type="submit" class="btn btn-primary" id="add-submit">
+            <svg class="ic"><use href="#i-plus"/></svg>
+            Cadastrar restaurante
+          </button>
+        </form>
+      </section>
+
+      <!-- Perfil (login / cadastro / foto) -->
+      <section class="view" id="view-profile">
+        <div id="profile-content"></div>
+      </section>
+
+      <!-- Detalhe do restaurante + cardápio -->
+      <section class="view" id="view-detail">
+        <div id="detail-content"></div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Navegação">
+      <span class="nav-indicator" id="nav-indicator"></span>
+      <button class="nav-item active" data-nav="home">
+        <svg class="ic"><use href="#i-home"/></svg>
+        <span>Início</span>
+      </button>
+      <button class="nav-item" data-nav="search">
+        <svg class="ic"><use href="#i-search"/></svg>
+        <span>Buscar</span>
+      </button>
+      <button class="nav-item" data-nav="add">
+        <svg class="ic"><use href="#i-add"/></svg>
+        <span>Cadastrar</span>
+      </button>
+      <button class="nav-item" data-nav="favorites">
+        <svg class="ic"><use href="#i-heart"/></svg>
+        <span>Favoritos</span>
+      </button>
+      <button class="nav-item" data-nav="profile">
+        <svg class="ic"><use href="#i-user"/></svg>
+        <span>Perfil</span>
+      </button>
+    </nav>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <input type="file" id="file-input" class="sr-only" accept="image/jpeg,image/png,image/webp" tabindex="-1">
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
