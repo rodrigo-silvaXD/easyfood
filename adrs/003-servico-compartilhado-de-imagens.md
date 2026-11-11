@@ -10,14 +10,11 @@
 
 ## Contexto
 
-A EasyFood passou a precisar de imagens em dois lugares diferentes:
+A missão pedia imagens em dois lugares: a **foto de perfil** do usuário autenticado (`POST /auth/me/image`) e a **foto de cada prato** (`POST /dishes/:dishId/image`). Depois eu acrescentei um terceiro, a **capa do restaurante**.
 
-- **foto de perfil** do usuário autenticado (`POST /auth/me/image`);
-- **foto de cada prato** do cardápio (`POST /dishes/:dishId/image`).
+Quando comecei, percebi que os casos fazem exatamente a mesma coisa: receber um arquivo, garantir que é imagem, reduzir o tamanho, salvar e gravar o caminho no PostgreSQL. Se eu escrevesse isso dentro de cada módulo, teria o mesmo código repetido, e qualquer ajuste de formato, qualidade, limite ou local de armazenamento precisaria ser feito em vários lugares.
 
-Os dois casos fazem a mesma coisa: receber um arquivo, garantir que é uma imagem válida, reduzir o tamanho, salvar e gravar o caminho no PostgreSQL. Se cada módulo implementasse isso sozinho, teríamos a mesma lógica duas vezes, e qualquer ajuste (formato, qualidade, limite de tamanho, local de armazenamento) teria de ser feito em dois lugares.
-
-O projeto já tem a pasta `src/modules/shared/` para serviços reutilizáveis (`email.service.js`, `activity.service.js`).
+O projeto do professor já tinha a pasta `src/modules/shared/` com serviços reutilizáveis (`email.service.js`, `activity.service.js`), então o lugar natural já existia.
 
 ---
 
@@ -25,30 +22,30 @@ O projeto já tem a pasta `src/modules/shared/` para serviços reutilizáveis (`
 
 | # | Opção | Descrição |
 |---|-------|-----------|
-| 1 | Processar a imagem dentro de cada módulo | `auth.service` e `dish.service` com seu próprio código de Sharp |
-| 2 | Serviço compartilhado no próprio monólito | `shared/image.service.js` + `shared/upload.middleware.js`, usados pelos dois módulos |
+| 1 | Processar a imagem dentro de cada módulo | `auth.service` e `dish.service`, cada um com seu código de Sharp |
+| 2 | Serviço compartilhado no próprio monólito | `shared/image.service.js` + `shared/upload.middleware.js`, usados por todos os módulos |
 | 3 | Função serverless (FaaS) | Upload direto para um bucket (S3) e uma função disparada pelo evento processa a imagem |
 
 ---
 
 ## Decisão
 
-Adotar a **opção 2**: um `image.service.js` e um `upload.middleware.js` em `src/modules/shared/`, reutilizados por `auth` e `dishes`.
+Escolhi a **opção 2**: um `image.service.js` e um `upload.middleware.js` em `src/modules/shared/`, reutilizados por `auth`, `dishes` e `restaurant`.
 
-- **Multer** recebe o arquivo em memória (`memoryStorage`), aceita apenas JPEG, PNG e WebP, com limite de **5 MB**.
-- **Sharp** corrige a orientação, recorta no tamanho pedido (perfil 400×400, prato 800×600) e converte para **WebP com qualidade 80**.
-- A imagem otimizada é salva em `uploads/<pasta>/<uuid>.webp` e servida pelo Express em `/uploads`.
+- O **Multer** recebe o arquivo em memória (`memoryStorage`), aceita só JPEG, PNG e WebP e limita a **5 MB**.
+- O **Sharp** corrige a orientação, recorta no tamanho pedido (perfil 400×400, prato 800×600, capa 1200×600) e converte para **WebP com qualidade 80**.
+- A imagem otimizada vai para `uploads/<pasta>/<uuid>.webp` e o Express serve em `/uploads`.
 - O PostgreSQL guarda só o caminho (`User.imageUrl`, `Dish.imageUrl` e `Restaurant.imageUrl`), nunca o arquivo.
-- O mesmo serviço atende um terceiro caso, a capa do restaurante (1200×600), e a remoção de imagens (`clearImage`), sem código novo de processamento.
+- Para trocar uma imagem uso `replaceImage` e para remover uso `clearImage`. Os dois ficam no mesmo serviço.
 
 ---
 
 ## Justificativa
 
-- **Uma responsabilidade, um lugar.** O `image.service` não sabe se a imagem é de um usuário ou de um prato. Quem chama informa a pasta e o tamanho. Um terceiro módulo (logo do restaurante, por exemplo) reaproveita o serviço sem código novo.
-- **Camadas respeitadas.** A rota só encadeia `authenticate → uploadImage → controller`; o controller traduz HTTP; o service do módulo aplica a regra de negócio (dono do restaurante, usuário do token); o `image.service` cuida de arquivo e Sharp.
-- **Segurança.** O `authenticate` roda antes do Multer, então uma requisição sem token é recusada (401) sem ler o arquivo. O mimetype informado pelo cliente pode ser falso; o Sharp confirma se o conteúdo é uma imagem de verdade e devolve 422 caso não seja.
-- **Proporcional ao momento do projeto.** A opção 3 (FaaS) escala melhor e tira o processamento pesado da API, mas exige bucket, fila de eventos e credenciais de nuvem. Para o volume atual, isso seria infraestrutura sem necessidade.
+- **Uma responsabilidade, um lugar.** O `image.service` não sabe se a imagem é de um usuário, de um prato ou de um restaurante: quem chama informa a pasta e o tamanho. A capa do restaurante, que entrou depois, provou isso, porque não precisei escrever nenhuma linha nova de processamento.
+- **Camadas respeitadas.** A rota só encadeia `authenticate → uploadImage → controller`, o controller traduz HTTP, o service do módulo aplica a regra de negócio (é o dono? é o usuário do token?) e o `image.service` cuida de arquivo e Sharp.
+- **Segurança.** Coloquei o `authenticate` antes do Multer, então uma requisição sem token é recusada (401) sem nem ler o arquivo. Também não confio no mimetype que o cliente manda, porque ele pode mentir. Quem confirma se o conteúdo é imagem de verdade é o Sharp, e se não for respondo 422.
+- **Proporcional ao momento do projeto.** A opção 3 escala melhor e tira o processamento pesado da API, mas exige bucket, eventos e credenciais de nuvem. Para o volume da EasyFood hoje, seria infraestrutura sem necessidade.
 
 ---
 
@@ -57,29 +54,30 @@ Adotar a **opção 2**: um `image.service.js` e um `upload.middleware.js` em `sr
 ### Positivas
 
 - ✅ Nenhuma lógica de processamento duplicada entre módulos
-- ✅ O app nunca serve o arquivo original de vários MB: toda imagem sai já no tamanho em que é exibida (400×400 ou 800×600) e em WebP
-- ✅ Troca de imagem sem arquivos órfãos: a nova é salva, o banco é atualizado e só então a antiga é apagada; se o banco falhar, a nova é descartada
-- ✅ Erros previsíveis: 400 (sem arquivo), 401 (sem token), 403 (não é o dono), 404 (prato inexistente), 413 (acima de 5 MB), 415 (formato não suportado), 422 (arquivo corrompido)
+- ✅ O app nunca serve o arquivo original de vários MB: toda imagem sai já no tamanho em que é exibida e em WebP
+- ✅ Troca e remoção sem arquivo órfão: na troca, a imagem nova é salva, o banco é atualizado e só então a antiga é apagada; se o banco falhar, a nova é descartada. Na remoção, limpo o banco primeiro e depois apago o arquivo, para o banco nunca apontar para algo que não existe
+- ✅ Erros previsíveis: 400 (sem arquivo), 401 (sem token), 403 (não é o dono), 404 (não existe), 413 (acima de 5 MB), 415 (formato não suportado), 422 (arquivo corrompido)
 
 ### Negativas
 
-- ❌ O processamento acontece no mesmo processo da API e consome CPU durante o upload
+- ❌ O processamento roda no mesmo processo da API e consome CPU durante o upload
 - ❌ As imagens ficam no disco do servidor: não funcionam com várias instâncias nem sobrevivem a um deploy em ambiente efêmero
-- ❌ O arquivo inteiro passa pela memória (limitado a 5 MB por requisição)
+- ❌ O arquivo inteiro passa pela memória (por isso o limite de 5 MB)
 
 ---
 
 ## Critérios de revisão
 
-Esta decisão deve ser reavaliada quando:
+Vou reavaliar esta decisão quando:
 
-1. A aplicação rodar em mais de uma instância ou em hospedagem com disco efêmero (mover os arquivos para um storage de objetos, como S3 ou Cloudinary)
-2. O volume de uploads começar a afetar o tempo de resposta das outras rotas (avaliar a opção 3, com processamento assíncrono via FaaS)
-3. Forem necessários vários tamanhos da mesma imagem (miniatura, média, original)
+1. A aplicação rodar em mais de uma instância ou numa hospedagem com disco efêmero (aí as imagens vão para um storage de objetos, como S3 ou Cloudinary)
+2. O volume de uploads começar a deixar as outras rotas lentas (aí considero a opção 3, com processamento assíncrono)
+3. Eu precisar de vários tamanhos da mesma imagem (miniatura, média, original)
 
 ---
 
 ## Notas
 
-- Por ser compartilhado, o `image.service` é o único ponto a mudar se o armazenamento sair do disco local: os módulos continuam chamando `replaceImage(...)` e recebendo um caminho.
-- A pasta `uploads/` está no `.gitignore`: imagens enviadas por usuários não são código.
+- Como o serviço é compartilhado, ele é o único ponto que muda se o armazenamento sair do disco local. Os módulos continuam chamando `replaceImage(...)` e recebendo um caminho.
+- A pasta `uploads/` está no `.gitignore`, porque imagem enviada por usuário não é código.
+- Quando o restaurante ou o prato não tem foto, a interface mostra uma imagem gerada a partir da categoria. Ela é desenhada no navegador e não ocupa espaço no servidor.

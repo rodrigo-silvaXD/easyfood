@@ -76,8 +76,9 @@ Antes da entrega, rodei uma bateria de 52 testes tentando quebrar a API, como um
 | Nome longo demais ou tipo errado (número, objeto) | `500` | `400` |
 | Mesmo e-mail com maiúsculas diferentes | Criava uma segunda conta | `409`. O login também ignora maiúsculas |
 | Senha errada repetidas vezes | Tentativas ilimitadas | Após 5 erros, `429` por 15 minutos |
-| Restaurante com nota negativa | Aceito | `400` (nota de 0 a 5) |
-| Restaurante com nota 10 ou texto | `500` (estoura `Decimal(2,1)`) | `400` |
+| Restaurante com nota negativa | Aceito | A nota do cadastro passou a ser ignorada: ela vem das avaliações ([ADR-004](../adrs/004-nota-vem-das-avaliacoes.md)) |
+| Restaurante com nota 10 ou texto | `500` (estoura `Decimal(2,1)`) | Idem: o cadastro não usa mais esse campo |
+| Conta apagada com token ainda válido | Continuava logada; cadastrar restaurante dava `500` | `401` e a sessão é encerrada ([ADR-005](../adrs/005-autenticacao-confere-se-a-conta-existe.md)) |
 | Prato com preço gigante | `500` (estoura `Decimal(10,2)`) | `400` |
 
 Na interface, clicar numa categoria do fim da lista deslocava **todas** as telas para o lado. O `scrollIntoView`, usado para centralizar o chip, rolava também o contêiner das telas. A correção rola só a fileira de categorias, e o contêiner passou a usar `overflow: clip`, que não pode ser rolado por código.
@@ -85,7 +86,10 @@ Na interface, clicar numa categoria do fim da lista deslocava **todas** as telas
 Também entraram:
 - remover a foto de perfil, a foto de um prato e a capa (`DELETE .../image`), apagando o arquivo do disco;
 - capa do restaurante (`POST /restaurants/:id/image`), reutilizando o mesmo `image.service`;
-- imagem gerada a partir da categoria quando o restaurante ou o prato não tem foto.
+- imagem gerada a partir da categoria quando o restaurante ou o prato não tem foto;
+- avaliações dos clientes, nome de restaurante sem repetição para o mesmo dono, favoritos por conta, ordenação, editar e excluir prato na tela, e a retirada da taxa de entrega que era inventada.
+
+Cada decisão está explicada nas ADRs 003 a 007, em [adrs/](../adrs/).
 
 ---
 
