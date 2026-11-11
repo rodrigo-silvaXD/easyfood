@@ -1,5 +1,5 @@
-// EasyFood - Prisma Schema
-// Documentação: https://pris.ly/d/prisma-schema
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -10,30 +10,40 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-/// Usuário da plataforma. A senha é sempre armazenada como hash (bcrypt).
-model User {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(150)
-  email     String   @unique @db.VarChar(150)
-  password  String   @db.VarChar(255)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  restaurants Restaurant[]
-
-  @@map("users")
-}
-
-/// Restaurante cadastrado na EasyFood.
 model Restaurant {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(150)
-  category  String?  @db.VarChar(100)
-  rating    Decimal? @db.Decimal(2, 1)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  ownerId Int?  @map("owner_id")
-  owner   User? @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-
-  @@index([category])
-  @@map("restaurants")
+  id       Int      @id @default(autoincrement())
+  name     String   @db.VarChar(150)
+  category String?  @db.VarChar(100)
+  rating   Decimal? @db.Decimal(2, 1)
+  ownerId  Int
+  owner    User     @relation(fields: [ownerId], references: [id])
+  dishes   Dish[]
 }
+
+model User {
+  id       Int    @id @default(autoincrement())
+  name     String @db.VarChar(150)
+  email    String @unique @db.VarChar(150)
+  password String @db.VarChar(255)
+  restaurants Restaurant[]
+}
+
+model Activity {
+  id        Int      @id @default(autoincrement())
+  action    String   @db.VarChar(100)
+  details   String?
+  createdAt DateTime @default(now())
+}
+
+model Dish {
+  id            Int   @id @default(autoincrement())
+  name          String
+  category      String
+  price         Decimal @db.Decimal(10, 2)
+  imageUrl      String
+  description   String
+  restaurantId  Int
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id])
+}
+     

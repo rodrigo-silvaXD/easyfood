@@ -1,11 +1,12 @@
 const jwt = require("jsonwebtoken");
 
-// Middleware de autenticação: lê o header Authorization, valida o JWT e,
-// se estiver tudo certo, coloca o usuário em req.user e segue para a rota.
+const JWT_SECRET = process.env.JWT_SECRET;
+
 
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
 
+  // Espera o formato: "Bearer <token>"
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Token não fornecido" });
   }
@@ -13,17 +14,15 @@ function authenticate(req, res, next) {
   const token = authHeader.split(" ")[1];
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    // Verifica a assinatura e a validade do token
+    const payload = jwt.verify(token, JWT_SECRET);
 
-    req.user = { id: payload.sub, email: payload.email };
+    // Anexa os dados do usuário na requisição
+    req.user = { id: payload.sub, name: payload.name, email: payload.email };
 
-    return next();
+    next(); // token válido → segue para a rota
   } catch (error) {
-    const expirou = error.name === "TokenExpiredError";
-
-    return res.status(401).json({
-      error: expirou ? "Sessão expirada. Faça login novamente." : "Token inválido"
-    });
+    return res.status(401).json({ error: "Token inválido ou expirado" });
   }
 }
 
