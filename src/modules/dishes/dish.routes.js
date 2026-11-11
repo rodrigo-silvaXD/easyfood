@@ -16,5 +16,6 @@ router.put("/dishes/:dishId", authenticate, controller.update);
 router.delete("/dishes/:dishId", authenticate, controller.remove);
 
 router.post("/dishes/:dishId/image", authenticate, uploadImage("image"), controller.uploadImage);
+router.delete("/dishes/:dishId/image", authenticate, controller.removeImage);
 
 module.exports = router;

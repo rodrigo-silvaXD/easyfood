@@ -61,6 +61,15 @@ async function uploadImage(req, res) {
   }
 }
 
+async function removeImage(req, res) {
+  try {
+    const dish = await dishService.removeDishImage(req.params.dishId, req.user.id);
+    return res.status(200).json(dish);
+  } catch (error) {
+    return handleError(res, error);
+  }
+}
+
 module.exports = {
   create,
   list,
@@ -68,5 +77,6 @@ module.exports = {
   update,
   remove,
   uploadImage,
+  removeImage,
   handleError
 };

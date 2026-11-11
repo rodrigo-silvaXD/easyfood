@@ -71,4 +71,20 @@ async function replaceImage(buffer, options, oldPath, persist) {
   return result;
 }
 
-module.exports = { saveImage, removeImage, replaceImage, UPLOADS_DIR, PUBLIC_PREFIX };
+/**
+ * Remove a imagem de um registro: o módulo limpa o caminho no banco (persist) e só
+ * depois o arquivo é apagado, para nunca deixar o banco apontando para um arquivo inexistente.
+ */
+async function clearImage(oldPath, persist) {
+  const result = await persist();
+
+  try {
+    await removeImage(oldPath);
+  } catch (error) {
+    console.error("Não foi possível remover o arquivo da imagem:", error.message);
+  }
+
+  return result;
+}
+
+module.exports = { saveImage, removeImage, replaceImage, clearImage, UPLOADS_DIR, PUBLIC_PREFIX };

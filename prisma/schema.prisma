@@ -15,6 +15,7 @@ model Restaurant {
   name     String   @db.VarChar(150)
   category String?  @db.VarChar(100)
   rating   Decimal? @db.Decimal(2, 1)
+  imageUrl String?  @db.VarChar(255)
   ownerId  Int
   owner    User     @relation(fields: [ownerId], references: [id])
   dishes   Dish[]

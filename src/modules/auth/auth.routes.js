@@ -26,5 +26,6 @@ router.get("/me", authenticate, async (req, res) => {
 
 // authenticate vem antes do upload: sem token, o arquivo nem chega a ser lido
 router.post("/me/image", authenticate, uploadImage("image"), controller.uploadImage);
+router.delete("/me/image", authenticate, controller.removeImage);
 
 module.exports = router;
