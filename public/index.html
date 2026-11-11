@@ -63,8 +63,16 @@
         <div class="categories" id="categories"></div>
 
         <div class="section-header">
-          <h2>Restaurantes</h2>
-          <span class="count" id="count"></span>
+          <h2>Restaurantes <span class="count" id="count"></span></h2>
+          <label class="sort">
+            <span class="sr-only">Ordenar</span>
+            <select id="sort">
+              <option value="relevancia">Ordenar</option>
+              <option value="nota">Melhor avaliados</option>
+              <option value="nome">Nome (A–Z)</option>
+              <option value="recentes">Mais recentes</option>
+            </select>
+          </label>
         </div>
 
         <div class="restaurant-list" id="restaurant-list"></div>
@@ -115,10 +123,7 @@
               <option value="Italiana">🍝 Italiana</option>
             </select>
           </div>
-          <div class="field">
-            <label for="restaurant-rating">Avaliação (0 a 5)</label>
-            <input type="number" id="restaurant-rating" placeholder="Ex: 4.3" min="0" max="5" step="0.1" required>
-          </div>
+          <p class="hint" style="margin:0 0 14px">A nota do restaurante vem das avaliações dos clientes. Ele começa como <strong>Novo</strong>.</p>
           <button type="submit" class="btn btn-primary" id="add-submit">
             <svg class="ic"><use href="#i-plus"/></svg>
             Cadastrar restaurante

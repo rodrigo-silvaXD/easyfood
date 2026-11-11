@@ -403,14 +403,99 @@ img { display: block; }
   50% { transform: scale(1.3); }
 }
 
-.delivery {
-  font-size: 11px;
-  color: var(--muted);
-  text-align: right;
-  line-height: 1.35;
+.rating.new {
+  background: var(--sage-soft);
+  color: var(--sage);
 }
 
-.delivery strong { color: var(--ink); font-weight: 700; }
+.section-header h2 .count { margin-left: 6px; font-weight: 600; letter-spacing: 0; }
+
+.sort select {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238d837a' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E") no-repeat right 8px center / 14px;
+  border-radius: 999px;
+  padding: 6px 28px 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.sort select:hover,
+.sort select:focus { border-color: var(--brand); outline: none; }
+
+/* ---------- Avaliação ---------- */
+
+.review-panel {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-panel h2 { font-size: 15px; }
+.review-panel .hint { margin: 2px 0 0; font-size: 12px; }
+
+.stars { display: flex; gap: 2px; flex-shrink: 0; }
+
+.star-btn {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: #ddd2c4;
+  transition: color 0.2s, transform 0.2s var(--ease), background 0.2s;
+}
+
+.star-btn svg { width: 22px; height: 22px; }
+.star-btn.on { color: var(--gold); }
+.star-btn:active { transform: scale(0.85); }
+
+/* acende a estrela sob o cursor e as anteriores */
+.stars:hover .star-btn { color: var(--gold); }
+.stars .star-btn:hover ~ .star-btn { color: #ddd2c4; }
+
+.review-note {
+  margin: 14px 20px 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--sage-soft);
+  color: var(--sage);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ---------- Ações do prato ---------- */
+
+.dish-bottom {
+  margin-top: auto;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dish-info .dish-bottom .price { margin: 0; padding: 0; }
+
+.dish-actions { display: flex; gap: 4px; }
+
+.text-btn {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-2);
+  transition: background 0.2s, color 0.2s;
+}
+
+.text-btn:hover { background: var(--surface-2); }
+.text-btn.danger { color: var(--danger); }
+.text-btn.danger:hover { background: #fbe4dd; }
 
 .load-more-btn {
   width: 100%;

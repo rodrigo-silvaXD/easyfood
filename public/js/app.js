@@ -33,17 +33,35 @@ const state = {
   category: "Todos",
   query: "",
   page: 0,
+  sort: "relevancia",
   token: storage.get("easyfood.token"),
   user: JSON.parse(storage.get("easyfood.user") || "null"),
-  favorites: new Set(JSON.parse(storage.get("easyfood.favorites") || "[]")),
+  favorites: new Set(),
   view: "home",
   nav: "home",
   returnTo: "home",
   current: null,
   dishes: [],
+  myRating: null,
+  editingDish: null,
   authMode: "login",
   pendingUpload: null
 };
+
+// Favoritos ficam separados por conta: quem entra no mesmo navegador não vê os do outro
+function favoritesKey() {
+  return `easyfood.favorites.${state.user ? state.user.id : "visitante"}`;
+}
+
+function loadFavorites() {
+  try {
+    state.favorites = new Set(JSON.parse(storage.get(favoritesKey()) || "[]"));
+  } catch {
+    state.favorites = new Set();
+  }
+}
+
+loadFavorites();
 
 // ----- UTILITÁRIOS -----
 
@@ -147,13 +165,15 @@ function money(value) {
   return Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function deliveryFee(id) {
-  return money(3 + ((id * 37) % 50) / 10);
+// A nota só aparece quando existe avaliação de cliente; antes disso o restaurante é "Novo"
+function ratingBadge(restaurant) {
+  if (!restaurant.reviewsCount) return '<span class="rating new">Novo</span>';
+  return `<span class="rating">${icon("star", "ic-fill")} ${Number(restaurant.rating).toFixed(1)}</span>`;
 }
 
-function deliveryTime(id) {
-  const min = 15 + ((id * 7) % 20);
-  return `${min}-${min + 10} min`;
+function reviewsLabel(count) {
+  if (!count) return "sem avaliações";
+  return `${count} ${count === 1 ? "avaliação" : "avaliações"}`;
 }
 
 function normalize(text) {
@@ -208,7 +228,9 @@ async function api(path, { method = "GET", body, form } = {}) {
   if (!response.ok) {
     if (response.status === 401 && state.token) {
       logout(false);
-      throw new Error("Sua sessão expirou. Entre novamente.");
+      const ended = new Error((data && data.error) || "Sua sessão expirou. Entre novamente.");
+      ended.sessionEnded = true;
+      throw ended;
     }
     const error = new Error((data && data.error) || "Algo deu errado");
     error.status = response.status;
@@ -233,10 +255,14 @@ function saveSession() {
 function logout(showToast = true) {
   state.token = null;
   state.user = null;
+  state.myRating = null;
   saveSession();
+  loadFavorites();
   renderHeader();
   renderAdd();
   renderProfile();
+  renderHome();
+  if (state.view === "favorites") renderFavorites();
   if (state.view === "detail") renderDetail();
   if (showToast) toast("Você saiu da sua conta");
 }
@@ -353,12 +379,21 @@ function renderCategories() {
     </button>`).join("");
 }
 
+const SORTERS = {
+  relevancia: null,
+  // restaurante sem avaliação vai para o fim, mesmo tendo nota 0 "melhor" que nenhuma
+  nota: (a, b) => (b.reviewsCount ? Number(b.rating) : -1) - (a.reviewsCount ? Number(a.rating) : -1) || b.reviewsCount - a.reviewsCount,
+  nome: (a, b) => a.name.localeCompare(b.name, "pt-BR"),
+  recentes: (a, b) => b.id - a.id
+};
+
 function filteredRestaurants() {
   const query = normalize(state.query);
-  return state.restaurants.filter((r) =>
+  const list = state.restaurants.filter((r) =>
     (state.category === "Todos" || r.category === state.category) &&
     (!query || normalize(r.name).includes(query) || normalize(r.category).includes(query))
   );
+  return SORTERS[state.sort] ? [...list].sort(SORTERS[state.sort]) : list;
 }
 
 function restaurantCard(restaurant, index) {
@@ -368,12 +403,11 @@ function restaurantCard(restaurant, index) {
       ${tile(restaurant)}
       <div class="restaurant-info">
         <h3>${esc(restaurant.name)}</h3>
-        <div class="meta">${esc(restaurant.category || "Restaurante")} • ${deliveryTime(restaurant.id)}</div>
-        <span class="rating">${icon("star", "ic-fill")} ${Number(restaurant.rating || 0).toFixed(1)}</span>
+        <div class="meta">${esc(restaurant.category || "Restaurante")} • ${reviewsLabel(restaurant.reviewsCount)}</div>
+        ${ratingBadge(restaurant)}
       </div>
       <div class="card-right">
         <button class="heart ${fav ? "on" : ""}" data-fav="${restaurant.id}" aria-label="Favoritar">${icon("heart")}</button>
-        <div class="delivery">Entrega<br><strong>${deliveryFee(restaurant.id)}</strong></div>
       </div>
     </div>`;
 }
@@ -415,7 +449,7 @@ function renderFavorites() {
 function toggleFavorite(id, button) {
   if (state.favorites.has(id)) state.favorites.delete(id);
   else state.favorites.add(id);
-  storage.set("easyfood.favorites", JSON.stringify([...state.favorites]));
+  storage.set(favoritesKey(), JSON.stringify([...state.favorites]));
 
   document.querySelectorAll(`[data-fav="${id}"]`).forEach((b) => b.classList.toggle("on", state.favorites.has(id)));
   button.classList.remove("pop");
@@ -435,17 +469,16 @@ async function submitRestaurant(event) {
   event.preventDefault();
   const name = $("restaurant-name").value.trim();
   const category = $("restaurant-category").value;
-  const rating = parseFloat($("restaurant-rating").value);
 
-  if (!name || !category || Number.isNaN(rating) || rating < 0 || rating > 5) {
-    toast("Preencha todos os campos corretamente", "error");
+  if (!name || !category) {
+    toast("Preencha o nome e a categoria", "error");
     return;
   }
 
   const button = $("add-submit");
   button.disabled = true;
   try {
-    const restaurant = await api("/restaurants", { method: "POST", body: { name, category, rating } });
+    const restaurant = await api("/restaurants", { method: "POST", body: { name, category } });
     state.restaurants.push(restaurant);
     renderCategories();
     renderHome();
@@ -467,17 +500,22 @@ async function openRestaurant(id, from = state.nav) {
 
   state.current = restaurant;
   state.dishes = null;
+  state.myRating = null;
+  state.editingDish = null;
   state.returnTo = from === "search" ? "home" : from;
   renderDetail();
   showView("detail");
 
-  try {
-    state.dishes = await api(`/restaurants/${id}/dishes`);
-  } catch (error) {
-    state.dishes = [];
-    toast(error.message, "error");
-  }
-  if (state.current && state.current.id === id) renderDetail();
+  const canRate = state.user && !isOwner(restaurant);
+  const [dishes, mine] = await Promise.all([
+    api(`/restaurants/${id}/dishes`).catch((error) => { toast(error.message, "error"); return []; }),
+    canRate ? api(`/restaurants/${id}/reviews/me`).catch(() => null) : null
+  ]);
+
+  if (!state.current || state.current.id !== id) return;
+  state.dishes = dishes;
+  state.myRating = mine ? mine.myRating : null;
+  renderDetail();
 }
 
 function dishCard(dish, index, owner) {
@@ -492,9 +530,50 @@ function dishCard(dish, index, owner) {
         <span class="tag">${esc(dish.category)}</span>
         <h3>${esc(dish.name)}</h3>
         <p>${esc(dish.description)}</p>
-        <span class="price">${money(dish.price)}</span>
+        <div class="dish-bottom">
+          <span class="price">${money(dish.price)}</span>
+          ${owner ? `
+            <span class="dish-actions">
+              <button class="text-btn" data-edit-dish="${dish.id}">Editar</button>
+              <button class="text-btn danger" data-delete-dish="${dish.id}">Excluir</button>
+            </span>` : ""}
+        </div>
       </div>
     </article>`;
+}
+
+// Bloco de avaliação: visitante é convidado a entrar, o dono não avalia o próprio restaurante
+function reviewPanel(restaurant, owner) {
+  if (owner) {
+    return `<p class="review-note">A nota do seu restaurante é a média das avaliações dos clientes.</p>`;
+  }
+
+  if (!state.user) {
+    return `
+      <div class="panel review-panel">
+        <div><h2>Avalie este restaurante</h2><p class="hint">Entre na sua conta para dar sua nota.</p></div>
+        <button class="btn btn-dark btn-inline" data-go="profile">Entrar</button>
+      </div>`;
+  }
+
+  const stars = [1, 2, 3, 4, 5].map((n) => `
+    <button class="star-btn ${state.myRating >= n ? "on" : ""}" data-rate="${n}" aria-label="${n} estrela${n > 1 ? "s" : ""}">
+      ${icon("star", "ic-fill")}
+    </button>`).join("");
+
+  return `
+    <div class="panel review-panel">
+      <div>
+        <h2>${state.myRating ? "Sua avaliação" : "Avalie este restaurante"}</h2>
+        <p class="hint">${state.myRating ? "Toque em outra estrela para mudar sua nota." : "Toque nas estrelas para dar sua nota."}</p>
+      </div>
+      <div class="stars">${stars}</div>
+    </div>`;
+}
+
+function dishFormValues() {
+  const dish = state.editingDish && (state.dishes || []).find((d) => d.id === state.editingDish);
+  return dish || { name: "", category: "", price: "", description: "" };
 }
 
 function renderDetail() {
@@ -502,6 +581,9 @@ function renderDetail() {
   if (!r) return;
   const owner = isOwner(r);
   const dishes = state.dishes;
+  const wrap = $("dish-form-wrap");
+  const formOpen = Boolean(wrap && wrap.classList.contains("open")) || Boolean(state.editingDish);
+  const values = dishFormValues();
 
   let menu;
   if (dishes === null) {
@@ -526,38 +608,44 @@ function renderDetail() {
     <div class="detail-head">
       <h1>${esc(r.name)}</h1>
       <div class="meta">
-        <span>${esc(r.category || "Restaurante")} • ${deliveryTime(r.id)}</span>
-        <span class="rating">${icon("star", "ic-fill")} ${Number(r.rating || 0).toFixed(1)}</span>
+        <span>${esc(r.category || "Restaurante")} • ${reviewsLabel(r.reviewsCount)}</span>
+        ${ratingBadge(r)}
         ${owner ? '<span class="owner-tag">Seu restaurante</span>' : ""}
       </div>
     </div>
+
+    ${reviewPanel(r, owner)}
 
     ${owner ? `
       <div class="section-header" style="padding-bottom:10px">
         <h2>Gerenciar</h2>
         <button class="btn btn-dark btn-inline" id="toggle-dish-form">${icon("plus")} Novo prato</button>
       </div>
-      <div class="collapse" id="dish-form-wrap"><div>
+      <div class="collapse ${formOpen ? "open" : ""}" id="dish-form-wrap"><div>
         <form class="panel" id="dish-form">
+          <h2 style="margin-bottom:12px">${state.editingDish ? "Editar prato" : "Novo prato"}</h2>
           <div class="field">
             <label for="dish-name">Nome do prato</label>
-            <input id="dish-name" placeholder="Ex: Lasanha à bolonhesa" required>
+            <input id="dish-name" placeholder="Ex: Lasanha à bolonhesa" maxlength="150" value="${esc(values.name)}" required>
           </div>
           <div class="row">
             <div class="field">
               <label for="dish-category">Categoria</label>
-              <input id="dish-category" placeholder="Ex: Massas" required>
+              <input id="dish-category" placeholder="Ex: Massas" maxlength="100" value="${esc(values.category)}" required>
             </div>
             <div class="field">
               <label for="dish-price">Preço (R$)</label>
-              <input id="dish-price" type="number" min="0" step="0.01" placeholder="42,90" required>
+              <input id="dish-price" type="number" min="0" max="99999999" step="0.01" placeholder="42,90" value="${esc(values.price)}" required>
             </div>
           </div>
           <div class="field">
             <label for="dish-description">Descrição</label>
-            <textarea id="dish-description" placeholder="Ingredientes, tamanho da porção..."></textarea>
+            <textarea id="dish-description" maxlength="1000" placeholder="Ingredientes, tamanho da porção...">${esc(values.description)}</textarea>
           </div>
-          <button class="btn btn-primary" type="submit" id="dish-submit">Adicionar ao cardápio</button>
+          <div class="row">
+            ${state.editingDish ? '<button class="btn btn-ghost" type="button" id="cancel-edit">Cancelar</button>' : ""}
+            <button class="btn btn-primary" type="submit" id="dish-submit">${state.editingDish ? "Salvar" : "Adicionar ao cardápio"}</button>
+          </div>
         </form>
       </div></div>` : ""}
 
@@ -583,13 +671,70 @@ async function submitDish(event) {
   const button = $("dish-submit");
   button.disabled = true;
   try {
-    const dish = await api(`/restaurants/${restaurant.id}/dishes`, { method: "POST", body });
-    state.dishes = [...(state.dishes || []), dish];
+    if (state.editingDish) {
+      const dish = await api(`/dishes/${state.editingDish}`, { method: "PUT", body });
+      state.dishes = state.dishes.map((d) => (d.id === dish.id ? dish : d));
+      state.editingDish = null;
+      toast("Prato atualizado", "success");
+    } else {
+      const dish = await api(`/restaurants/${restaurant.id}/dishes`, { method: "POST", body });
+      state.dishes = [...(state.dishes || []), dish];
+      toast("Prato adicionado. Toque na câmera para colocar a foto.", "success");
+    }
+    $("dish-form-wrap").classList.remove("open");
     renderDetail();
-    toast("Prato adicionado. Toque na câmera para colocar a foto.", "success");
   } catch (error) {
     toast(error.message, "error");
     button.disabled = false;
+  }
+}
+
+function editDish(id) {
+  state.editingDish = id;
+  renderDetail();
+  $("dish-form-wrap").scrollIntoView({ behavior: "smooth", block: "start" });
+  setTimeout(() => $("dish-name").focus({ preventScroll: true }), 300);
+}
+
+function cancelEdit() {
+  state.editingDish = null;
+  $("dish-form-wrap").classList.remove("open");
+  renderDetail();
+}
+
+async function deleteDish(id) {
+  const dish = state.dishes.find((d) => d.id === id);
+  if (!dish || !confirm(`Excluir "${dish.name}" do cardápio? Isso não pode ser desfeito.`)) return;
+
+  try {
+    await api(`/dishes/${id}`, { method: "DELETE" });
+    state.dishes = state.dishes.filter((d) => d.id !== id);
+    if (state.editingDish === id) state.editingDish = null;
+    renderDetail();
+    toast("Prato excluído", "success");
+  } catch (error) {
+    toast(error.message, "error");
+  }
+}
+
+async function rateRestaurant(value) {
+  const restaurant = state.current;
+  const previous = state.myRating;
+  state.myRating = value;
+  renderDetail();
+
+  try {
+    const result = await api(`/restaurants/${restaurant.id}/reviews`, { method: "POST", body: { rating: value } });
+    const updated = { ...restaurant, rating: result.rating, reviewsCount: result.reviewsCount };
+    state.restaurants = state.restaurants.map((r) => (r.id === updated.id ? updated : r));
+    if (state.current && state.current.id === updated.id) state.current = updated;
+    renderDetail();
+    renderHome();
+    toast(previous ? "Avaliação atualizada" : "Obrigado pela avaliação!", "success");
+  } catch (error) {
+    state.myRating = previous;
+    renderDetail();
+    toast(error.message, "error");
   }
 }
 
@@ -658,8 +803,9 @@ function applyImageChange(target, updated) {
     state.dishes = state.dishes.map((d) => (d.id === updated.id ? updated : d));
     renderDetail();
   } else {
-    state.restaurants = state.restaurants.map((r) => (r.id === updated.id ? updated : r));
-    state.current = updated;
+    // a rota de capa não devolve reviewsCount: mantém o que já estava no estado
+    state.restaurants = state.restaurants.map((r) => (r.id === updated.id ? { ...r, ...updated } : r));
+    state.current = state.restaurants.find((r) => r.id === updated.id);
     renderDetail();
     renderHome();
   }
@@ -775,10 +921,13 @@ async function submitAuth(event) {
     state.token = result.token;
     state.user = result.user;
     saveSession();
+    loadFavorites();
     renderHeader();
     renderAdd();
     renderProfile();
-    if (state.view === "detail") renderDetail();
+    renderHome();
+    // na tela de um restaurante, recarrega para trazer a avaliação desse usuário
+    if (state.view === "detail" && state.current) openRestaurant(state.current.id, state.returnTo);
     toast(`Olá, ${state.user.name.split(" ")[0]}!`, "success");
   } catch (error) {
     toast(error.message, "error");
@@ -795,8 +944,9 @@ async function refreshUser() {
     saveSession();
     renderHeader();
     renderProfile();
-  } catch {
-    // api() já encerra a sessão se o token for inválido
+  } catch (error) {
+    // api() já encerrou a sessão; aqui só avisa o motivo (token expirado ou conta apagada)
+    if (error.sessionEnded) toast(error.message, "error");
   }
 }
 
@@ -853,11 +1003,28 @@ document.addEventListener("click", (event) => {
   }
 
   if (el("#toggle-dish-form")) {
-    const wrap = $("dish-form-wrap");
-    wrap.classList.toggle("open");
-    if (wrap.classList.contains("open")) setTimeout(() => $("dish-name").focus(), 250);
+    // se estava editando, "Novo prato" troca o formulário para cadastro em vez de fechá-lo
+    if (state.editingDish) {
+      state.editingDish = null;
+      renderDetail();
+      $("dish-form-wrap").classList.add("open");
+    } else {
+      $("dish-form-wrap").classList.toggle("open");
+    }
+    if ($("dish-form-wrap").classList.contains("open")) setTimeout(() => $("dish-name").focus(), 250);
     return;
   }
+
+  if (el("#cancel-edit")) return cancelEdit();
+
+  const rate = el("[data-rate]");
+  if (rate) return rateRestaurant(Number(rate.dataset.rate));
+
+  const edit = el("[data-edit-dish]");
+  if (edit) return editDish(Number(edit.dataset.editDish));
+
+  const del = el("[data-delete-dish]");
+  if (del) return deleteDish(Number(del.dataset.deleteDish));
 
   const authTab = el("[data-auth]");
   if (authTab) {
@@ -898,6 +1065,12 @@ document.addEventListener("submit", (event) => {
 
 $("search").addEventListener("input", (event) => {
   state.query = event.target.value;
+  state.page = 0;
+  renderHome();
+});
+
+$("sort").addEventListener("change", (event) => {
+  state.sort = event.target.value;
   state.page = 0;
   renderHome();
 });
