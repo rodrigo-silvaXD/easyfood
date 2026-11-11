@@ -66,9 +66,81 @@ function categoryStyle(category) {
   return fallback[hash % fallback.length];
 }
 
-function tileStyle(category) {
+// Emoji do prato a partir da categoria/nome que o dono digitou (texto livre)
+const DISH_EMOJI = [
+  [/sobremesa|doce|torta|bolo|tiramis|pudim|mousse|brownie|cheesecake/, "🍰"],
+  [/sorvete|acai|gelato/, "🍨"],
+  [/vinho/, "🍷"],
+  [/bebida|suco|refri|drink|soda|agua|cerveja|chopp/, "🥤"],
+  [/cafe|cappuccino|espresso/, "☕"],
+  [/pizza/, "🍕"],
+  [/massa|lasanha|espaguete|nhoque|macarr|talharim|ravioli|penne|fettuccine/, "🍝"],
+  [/risoto|arroz/, "🍚"],
+  [/hamb|burger|lanche|sanduich/, "🍔"],
+  [/sushi|sashimi|temaki|uramaki|niguiri/, "🍣"],
+  [/lamen|ramen|yakisoba|udon/, "🍜"],
+  [/salada|saudavel|vegan|vegetarian|bowl/, "🥗"],
+  [/frango|galinha|chicken/, "🍗"],
+  [/carne|bife|picanha|churrasco|costela|steak/, "🥩"],
+  [/peixe|camarao|frutos do mar|salmao/, "🍤"],
+  [/sopa|caldo/, "🍲"],
+  [/taco|burrito|nacho|quesadilla/, "🌮"],
+  [/feijoada|feijao|prato feito|executivo/, "🍛"],
+  [/batata|frita|porcao|petisco|entrada/, "🍟"]
+];
+
+function dishEmoji(dish, restaurantCategory) {
+  const text = normalize(`${dish.category} ${dish.name}`);
+  const match = DISH_EMOJI.find(([pattern]) => pattern.test(text));
+  return match ? match[1] : categoryStyle(restaurantCategory)[0];
+}
+
+// Imagem gerada quando o dono não enviou foto: degradê da categoria, círculos de luz
+// em posições que dependem do id (cada item fica diferente) e o emoji em destaque
+const artCache = new Map();
+
+function categoryArt(emoji, category, seed) {
+  const key = `${emoji}|${category}|${seed}`;
+  if (artCache.has(key)) return artCache.get(key);
+
   const [, from, to] = categoryStyle(category);
-  return `background: linear-gradient(140deg, ${from}, ${to})`;
+  const rnd = (n) => {
+    const x = Math.sin(seed * 9301 + n * 49297) * 233280;
+    return x - Math.floor(x);
+  };
+  const circles = [0, 1, 2, 3].map((i) =>
+    `<circle cx="${Math.round(rnd(i) * 400)}" cy="${Math.round(rnd(i + 7) * 300)}" r="${Math.round(40 + rnd(i + 13) * 90)}" fill="#fff" opacity="${(0.12 + rnd(i + 21) * 0.18).toFixed(2)}"/>`
+  ).join("");
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${from}"/><stop offset="1" stop-color="${to}"/></linearGradient>
+      <radialGradient id="l" cx=".3" cy=".2" r=".8"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+      <filter id="s" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="10" stdDeviation="9" flood-color="#1f1a16" flood-opacity=".22"/></filter>
+    </defs>
+    <rect width="400" height="300" fill="url(#g)"/>${circles}<rect width="400" height="300" fill="url(#l)"/>
+    <text x="200" y="160" font-size="118" text-anchor="middle" dominant-baseline="middle" filter="url(#s)">${emoji}</text>
+  </svg>`;
+
+  const uri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  artCache.set(key, uri);
+  return uri;
+}
+
+function restaurantImage(restaurant) {
+  return restaurant.imageUrl
+    ? imageSrc(restaurant.imageUrl)
+    : categoryArt(categoryStyle(restaurant.category)[0], restaurant.category, restaurant.id);
+}
+
+function dishImage(dish, restaurant) {
+  return dish.imageUrl
+    ? imageSrc(dish.imageUrl)
+    : categoryArt(dishEmoji(dish, restaurant.category), restaurant.category, dish.id + 7919);
+}
+
+function tile(restaurant, tag = "div") {
+  return `<${tag} class="tile"><img src="${esc(restaurantImage(restaurant))}" alt="" loading="lazy" data-fade></${tag}>`;
 }
 
 function money(value) {
@@ -293,7 +365,7 @@ function restaurantCard(restaurant, index) {
   const fav = state.favorites.has(restaurant.id);
   return `
     <div class="restaurant-card" role="button" tabindex="0" data-open="${restaurant.id}" style="animation-delay:${Math.min(index, 6) * 0.05}s">
-      <div class="tile" style="${tileStyle(restaurant.category)}">${categoryStyle(restaurant.category)[0]}</div>
+      ${tile(restaurant)}
       <div class="restaurant-info">
         <h3>${esc(restaurant.name)}</h3>
         <div class="meta">${esc(restaurant.category || "Restaurante")} • ${deliveryTime(restaurant.id)}</div>
@@ -328,6 +400,7 @@ function renderHome() {
     html += `<button class="load-more-btn" id="load-more">Carregar mais (${remaining} restante${remaining > 1 ? "s" : ""})</button>`;
   }
   $("restaurant-list").innerHTML = html;
+  fadeInImages($("restaurant-list"));
 }
 
 function renderFavorites() {
@@ -336,6 +409,7 @@ function renderFavorites() {
   $("favorites-list").innerHTML = list.length
     ? list.map(restaurantCard).join("")
     : `<div class="empty"><div class="icon">💛</div><strong>Nenhum favorito ainda</strong>Toque no coração de um restaurante para salvá-lo aqui.</div>`;
+  fadeInImages($("favorites-list"));
 }
 
 function toggleFavorite(id, button) {
@@ -407,15 +481,12 @@ async function openRestaurant(id, from = state.nav) {
 }
 
 function dishCard(dish, index, owner) {
-  const photo = dish.imageUrl
-    ? `<img src="${esc(imageSrc(dish.imageUrl))}" alt="${esc(dish.name)}" data-fade>`
-    : `<span>${categoryStyle(state.current.category)[0]}</span>`;
-
   return `
     <article class="dish-card" style="animation-delay:${Math.min(index, 6) * 0.05}s">
       <div class="dish-photo" id="dish-photo-${dish.id}">
-        ${photo}
+        <img src="${esc(dishImage(dish, state.current))}" alt="${esc(dish.name)}" data-fade>
         ${owner ? `<button class="photo-btn" data-upload-dish="${dish.id}" aria-label="Enviar foto do prato">${icon("camera")}</button>` : ""}
+        ${owner && dish.imageUrl ? `<button class="remove-btn" data-remove-dish="${dish.id}" aria-label="Remover foto do prato">${icon("trash")}</button>` : ""}
       </div>
       <div class="dish-info">
         <span class="tag">${esc(dish.category)}</span>
@@ -442,9 +513,15 @@ function renderDetail() {
   }
 
   $("detail-content").innerHTML = `
-    <div class="hero" style="${tileStyle(r.category)}">
+    <div class="hero" id="hero">
+      <img src="${esc(restaurantImage(r))}" alt="" data-fade>
       <button class="back-btn" id="back-btn" aria-label="Voltar">${icon("back")}</button>
-      ${categoryStyle(r.category)[0]}
+      ${owner && !r.imageUrl ? '<span class="hero-note">Capa automática · envie uma foto</span>' : ""}
+      ${owner ? `
+        <div class="hero-actions">
+          ${r.imageUrl ? `<button class="remove-btn" id="remove-cover" aria-label="Remover capa">${icon("trash")}</button>` : ""}
+          <button class="photo-btn" id="upload-cover" aria-label="Enviar capa do restaurante">${icon("camera")}</button>
+        </div>` : ""}
     </div>
     <div class="detail-head">
       <h1>${esc(r.name)}</h1>
@@ -542,23 +619,62 @@ async function uploadSelected(file) {
   const form = new FormData();
   form.append("image", file);
 
-  const holder = target.type === "user" ? document.querySelector(".profile-avatar") : $(`dish-photo-${target.id}`);
+  const holder = imageHolder(target);
   if (holder) holder.classList.add("uploading");
 
   try {
-    if (target.type === "user") {
-      const user = await api("/auth/me/image", { method: "POST", form });
-      state.user = { ...state.user, imageUrl: user.imageUrl };
-      saveSession();
-      renderHeader();
-      renderProfile();
-      toast("Foto de perfil atualizada", "success");
-    } else {
-      const dish = await api(`/dishes/${target.id}/image`, { method: "POST", form });
-      state.dishes = state.dishes.map((d) => (d.id === dish.id ? dish : d));
-      renderDetail();
-      toast("Foto do prato atualizada", "success");
-    }
+    const updated = await api(IMAGE_ROUTES[target.type](target.id), { method: "POST", form });
+    applyImageChange(target, updated);
+    toast(IMAGE_LABELS[target.type] + " atualizada", "success");
+  } catch (error) {
+    toast(error.message, "error");
+  } finally {
+    if (holder) holder.classList.remove("uploading");
+  }
+}
+
+const IMAGE_ROUTES = {
+  user: () => "/auth/me/image",
+  dish: (id) => `/dishes/${id}/image`,
+  cover: (id) => `/restaurants/${id}/image`
+};
+
+const IMAGE_LABELS = { user: "Foto de perfil", dish: "Foto do prato", cover: "Capa do restaurante" };
+
+function imageHolder(target) {
+  if (target.type === "user") return document.querySelector(".profile-avatar");
+  if (target.type === "cover") return $("hero");
+  return $(`dish-photo-${target.id}`);
+}
+
+// Atualiza o estado local com o registro que a API devolveu e redesenha o que mostra a imagem
+function applyImageChange(target, updated) {
+  if (target.type === "user") {
+    state.user = { ...state.user, imageUrl: updated.imageUrl };
+    saveSession();
+    renderHeader();
+    renderProfile();
+  } else if (target.type === "dish") {
+    state.dishes = state.dishes.map((d) => (d.id === updated.id ? updated : d));
+    renderDetail();
+  } else {
+    state.restaurants = state.restaurants.map((r) => (r.id === updated.id ? updated : r));
+    state.current = updated;
+    renderDetail();
+    renderHome();
+  }
+}
+
+async function removeImage(target) {
+  if (!confirm(`Remover ${IMAGE_LABELS[target.type].toLowerCase()}?`)) return;
+
+  const holder = imageHolder(target);
+  if (holder) holder.classList.add("uploading");
+
+  try {
+    const updated = await api(IMAGE_ROUTES[target.type](target.id), { method: "DELETE" });
+    applyImageChange(target, updated);
+    toast(`${IMAGE_LABELS[target.type]} removida`, "success");
   } catch (error) {
     toast(error.message, "error");
   } finally {
@@ -595,7 +711,8 @@ function renderProfile() {
         </div>
         <div class="field">
           <label for="auth-password">Senha</label>
-          <input id="auth-password" type="password" autocomplete="${register ? "new-password" : "current-password"}" placeholder="••••••••" required>
+          <input id="auth-password" type="password" autocomplete="${register ? "new-password" : "current-password"}" placeholder="••••••••" ${register ? 'minlength="6" maxlength="72"' : ""} required>
+          ${register ? '<span class="help">Mínimo de 6 caracteres</span>' : ""}
         </div>
         <button class="btn btn-primary" type="submit" id="auth-submit">${register ? "Criar conta" : "Entrar"}</button>
       </form>`;
@@ -615,6 +732,7 @@ function renderProfile() {
       </div>
       <h2>${esc(state.user.name)}</h2>
       <p>${esc(state.user.email)}</p>
+      ${state.user.imageUrl ? `<button class="link-btn" id="remove-avatar">Remover foto</button>` : ""}
     </div>
 
     <div class="panel" style="margin-top:14px">
@@ -622,7 +740,7 @@ function renderProfile() {
       <p class="hint">${mine.length ? "Toque para gerenciar o cardápio e as fotos dos pratos." : "Você ainda não cadastrou nenhum restaurante."}</p>
       ${mine.map((r) => `
         <button class="list-row" data-open="${r.id}">
-          <span class="tile" style="${tileStyle(r.category)}">${categoryStyle(r.category)[0]}</span>
+          ${tile(r, "span")}
           <span><strong>${esc(r.name)}</strong><span>${esc(r.category)}</span></span>
           <svg class="ic chev"><use href="#i-chevron"/></svg>
         </button>`).join("")}
@@ -640,6 +758,12 @@ async function submitAuth(event) {
   event.preventDefault();
   const email = $("auth-email").value.trim();
   const password = $("auth-password").value;
+
+  if (state.authMode === "register" && password.length < 6) {
+    toast("A senha deve ter pelo menos 6 caracteres", "error");
+    return;
+  }
+
   const button = $("auth-submit");
   button.disabled = true;
 
@@ -676,6 +800,16 @@ async function refreshUser() {
   }
 }
 
+// Centraliza o chip rolando apenas a fileira de categorias. scrollIntoView também rolava
+// os contêineres de fora e deixava todas as telas deslocadas para o lado.
+function centerChip(chip) {
+  const row = $("categories");
+  const rowBox = row.getBoundingClientRect();
+  const chipBox = chip.getBoundingClientRect();
+  const left = row.scrollLeft + (chipBox.left - rowBox.left) - (rowBox.width - chipBox.width) / 2;
+  row.scrollTo({ left, behavior: "smooth" });
+}
+
 // ----- EVENTOS -----
 
 document.addEventListener("click", (event) => {
@@ -702,7 +836,7 @@ document.addEventListener("click", (event) => {
     state.category = chip.dataset.category;
     state.page = 0;
     document.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c === chip));
-    chip.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    centerChip(chip);
     return renderHome();
   }
 
@@ -737,6 +871,12 @@ document.addEventListener("click", (event) => {
   const dishUpload = el("[data-upload-dish]");
   if (dishUpload) return pickImage({ type: "dish", id: Number(dishUpload.dataset.uploadDish) });
 
+  const dishRemove = el("[data-remove-dish]");
+  if (dishRemove) return removeImage({ type: "dish", id: Number(dishRemove.dataset.removeDish) });
+
+  if (el("#upload-cover")) return pickImage({ type: "cover", id: state.current.id });
+  if (el("#remove-cover")) return removeImage({ type: "cover", id: state.current.id });
+  if (el("#remove-avatar")) return removeImage({ type: "user" });
   if (el("#upload-avatar")) return pickImage({ type: "user" });
   if (el("#header-avatar")) return go("profile");
   if (el("#logout-btn")) return logout();
