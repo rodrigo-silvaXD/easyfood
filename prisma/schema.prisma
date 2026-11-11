@@ -19,6 +19,7 @@ model Restaurant {
   ownerId  Int
   owner    User     @relation(fields: [ownerId], references: [id])
   dishes   Dish[]
+  reviews  Review[]
 }
 
 model User {
@@ -28,6 +29,22 @@ model User {
   password String @db.VarChar(255)
   imageUrl String? @db.VarChar(255)
   restaurants Restaurant[]
+  reviews     Review[]
+}
+
+// Nota de 1 a 5 que um cliente dá a um restaurante; Restaurant.rating guarda a média
+model Review {
+  id           Int        @id @default(autoincrement())
+  rating       Int
+  userId       Int
+  restaurantId Int
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, restaurantId])
 }
 
 model Activity {

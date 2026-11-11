@@ -19,13 +19,10 @@ function handleError(res, error, context) {
 
 async function create(req, res) {
   try {
-    const { rating } = req.body;
+    // "rating" no corpo é ignorado: o dono não define a própria nota (ADR-004)
     const data = {
       name: validate.text(req.body.name, "Nome", { max: 150 }),
-      category: validate.text(req.body.category, "Categoria", { max: 100 }),
-      rating: rating === undefined || rating === null || rating === ""
-        ? 0
-        : validate.number(rating, "Avaliação", { min: 0, max: 5 })
+      category: validate.text(req.body.category, "Categoria", { max: 100 })
     };
 
     const restaurant = await restaurantService.createRestaurant(data, req.user);

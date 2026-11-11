@@ -8,16 +8,31 @@ const validate = require("../shared/validation");
 const COMERCIAL_EMAIL = "felipe.oliveira@pro.fecaf.com.br";
 
 async function listRestaurants() {
-  return prisma.restaurant.findMany();
+  const restaurants = await prisma.restaurant.findMany({
+    include: { _count: { select: { reviews: true } } },
+    orderBy: { id: "asc" }
+  });
+
+  return restaurants.map(({ _count, ...restaurant }) => ({ ...restaurant, reviewsCount: _count.reviews }));
 }
 
 async function createRestaurant(data, user) {
+  // O mesmo dono não pode ter dois restaurantes com o mesmo nome
+  const duplicate = await prisma.restaurant.findFirst({
+    where: { ownerId: user.id, name: { equals: data.name, mode: "insensitive" } }
+  });
+  if (duplicate) {
+    const error = new Error("Você já tem um restaurante com esse nome");
+    error.statusCode = 409;
+    throw error;
+  }
+
   // 1) O que realmente importa: cadastrar o restaurante
   const restaurant = await prisma.restaurant.create({
     data: {
       name: data.name,
       category: data.category,
-      rating: data.rating || 0,
+      rating: 0, // a nota nasce zerada e vem das avaliações dos clientes (ADR-004)
       ownerId: user.id // ⬅️ grava o dono (quem está logado, vindo do token)
     }
   });
@@ -61,7 +76,7 @@ async function createRestaurant(data, user) {
   }
 
   // 3) O restaurante volta independente do resultado das ações acima
-  return restaurant;
+  return { ...restaurant, reviewsCount: 0 };
 
   // --- Envio de sms função 
 }
