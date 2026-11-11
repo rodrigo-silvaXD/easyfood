@@ -13,6 +13,9 @@ app.use(express.json());
 
 app.use(express.static(path.join(__dirname, "../public")));
 
+// Imagens otimizadas pelo image.service ficam acessíveis em /uploads/...
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
 
 app.use("/auth", authRoutes); 
 app.use(dishRoutes);

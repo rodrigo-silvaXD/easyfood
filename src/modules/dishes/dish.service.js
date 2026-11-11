@@ -1,4 +1,5 @@
 const prisma = require("../../database/prisma");
+const imageService = require("../shared/image.service");
 
 function validateDish(data) {
   if (typeof data.name !== "string" || !data.name.trim()) {
@@ -127,6 +128,21 @@ async function deleteDish(dishId, userId) { // ⬅️ novo parâmetro userId
   ensureOwnership(dish.restaurant, userId); // ⬅️
 
   await prisma.dish.delete({ where: { id: dish.id } });
+  await imageService.removeImage(dish.imageUrl).catch(() => {});
+}
+
+// Existência (404) e permissão (403) são checadas antes de processar a imagem
+async function updateDishImage(dishId, buffer, userId) {
+  const dish = await getDishWithRestaurant(dishId);
+
+  ensureOwnership(dish.restaurant, userId);
+
+  return imageService.replaceImage(
+    buffer,
+    { folder: "dishes", width: 800, height: 600 },
+    dish.imageUrl,
+    (imageUrl) => prisma.dish.update({ where: { id: dish.id }, data: { imageUrl } })
+  );
 }
 
 module.exports = {
@@ -135,5 +151,6 @@ module.exports = {
   getDish,
   updateDish,
   deleteDish,
+  updateDishImage,
   parseId
 };

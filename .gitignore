@@ -3,3 +3,6 @@ node_modules
 .env
 
 /generated/prisma
+
+# Imagens enviadas pelos usuários (geradas em tempo de execução)
+/uploads
